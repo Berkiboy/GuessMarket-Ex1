@@ -2,10 +2,6 @@ package engine.model;
 
 import java.io.Serializable;
 
-/**
- * A simple money balance. Event accounts are explicitly allowed to go
- * negative (it represents the Market Maker subsidizing the event).
- */
 public class Account implements Serializable {
 
     private double balance;
