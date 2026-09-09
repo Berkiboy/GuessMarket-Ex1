@@ -81,7 +81,14 @@ public class XmlEventsFileLoader implements EventsFileLoader {
 
         String description = textElement(eventElement, "description", eventLabel);
 
-        Element commissionElement = requiredChild(eventElement, "commission", eventLabel);
+        // some official course files misspell this element as "comision" (single m); accept both
+        Element commissionElement = optionalChild(eventElement, "commission");
+        if (commissionElement == null) {
+            commissionElement = optionalChild(eventElement, "comision");
+        }
+        if (commissionElement == null) {
+            throw new FileValidationException(eventLabel + ": missing required element \"commission\".");
+        }
         int commissionPercent = parseInt(commissionElement.getTextContent(), eventLabel, "commission");
         if (commissionPercent < MIN_COMMISSION || commissionPercent > MAX_COMMISSION) {
             throw new FileValidationException(eventLabel + " (\"" + name + "\"): commission must be between "
@@ -166,6 +173,14 @@ public class XmlEventsFileLoader implements EventsFileLoader {
     }
 
     private Element requiredChild(Element parent, String tagName, String context) throws FileValidationException {
+        Element child = optionalChild(parent, tagName);
+        if (child == null) {
+            throw new FileValidationException(context + ": missing required element \"" + tagName + "\".");
+        }
+        return child;
+    }
+
+    private Element optionalChild(Element parent, String tagName) {
         NodeList children = parent.getElementsByTagName(tagName);
         for (int i = 0; i < children.getLength(); i++) {
             Node child = children.item(i);
@@ -173,7 +188,7 @@ public class XmlEventsFileLoader implements EventsFileLoader {
                 return (Element) child;
             }
         }
-        throw new FileValidationException(context + ": missing required element \"" + tagName + "\".");
+        return null;
     }
 
     private String textElement(Element parent, String tagName, String context) throws FileValidationException {
