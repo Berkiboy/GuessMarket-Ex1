@@ -1,6 +1,5 @@
 package engine.model;
 
-// matches the XML commission/@type attribute: "on-purchase" | "on-close"
 public enum CommissionType {
     ON_PURCHASE,
     ON_CLOSE;

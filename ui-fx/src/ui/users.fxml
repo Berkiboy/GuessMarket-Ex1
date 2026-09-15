@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<SplitPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="ui.UsersController"
+           dividerPositions="0.25">
+    <items>
+        <ListView fx:id="userList" prefWidth="220"/>
+        <ScrollPane fitToWidth="true">
+            <content>
+                <VBox fx:id="detailBox" spacing="10">
+                    <padding>
+                        <Insets top="15" right="15" bottom="15" left="15"/>
+                    </padding>
+                </VBox>
+            </content>
+        </ScrollPane>
+    </items>
+</SplitPane>

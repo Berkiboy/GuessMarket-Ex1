@@ -9,19 +9,19 @@ public class EventStateSummary {
     private final double accountBalance;
     private final double totalCommissionCollected;
     private final List<TradeRecordInfo> historyMostRecentFirst;
-    private final boolean closed;
-    private final String winningOptionName; // null while active
+    private final String status;
+    private final String winningOptionName;
 
     public EventStateSummary(int id, String name, List<OptionInfo> options, double accountBalance,
                               double totalCommissionCollected, List<TradeRecordInfo> historyMostRecentFirst,
-                              boolean closed, String winningOptionName) {
+                              String status, String winningOptionName) {
         this.id = id;
         this.name = name;
         this.options = options;
         this.accountBalance = accountBalance;
         this.totalCommissionCollected = totalCommissionCollected;
         this.historyMostRecentFirst = historyMostRecentFirst;
-        this.closed = closed;
+        this.status = status;
         this.winningOptionName = winningOptionName;
     }
 
@@ -49,8 +49,8 @@ public class EventStateSummary {
         return historyMostRecentFirst;
     }
 
-    public boolean isClosed() {
-        return closed;
+    public String getStatus() {
+        return status;
     }
 
     public String getWinningOptionName() {

@@ -1,6 +1,5 @@
 package engine.model.trading;
 
-// LMSR pricing, per the course spec (appendix א')
 public class LmsrTradingMethod implements TradingMethod {
 
     private final int b;
@@ -18,7 +17,6 @@ public class LmsrTradingMethod implements TradingMethod {
         return numerator / denominator;
     }
 
-    @Override
     public double costOfPurchase(int optionIndex, int quantity) {
         double before = costFunction(sharesBought);
         double[] after = sharesBought.clone();
@@ -27,13 +25,12 @@ public class LmsrTradingMethod implements TradingMethod {
         return afterCost - before;
     }
 
-    @Override
     public void commitPurchase(int optionIndex, int quantity) {
         sharesBought[optionIndex] += quantity;
     }
 
     @Override
-    public double initialSubsidy() {
+    public double openingCost() {
         return costFunction(new double[sharesBought.length]);
     }
 

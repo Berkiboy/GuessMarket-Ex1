@@ -28,3 +28,10 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Project-specific build/deliverable artifacts ###
+/out-build/
+/submission/
+/submission2/
+/lib/
+*.gmdata

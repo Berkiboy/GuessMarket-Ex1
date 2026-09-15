@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Guess-Market>
+    <GM-events>
+        <GM-event name="Will it rain tomorrow">
+            <id>1</id>
+            <description>Will it rain in Tel Aviv tomorrow</description>
+            <comision type="on-purchase">5</comision>
+            <GM-options>
+                <GM-option>Yes</GM-option>
+                <GM-option>No</GM-option>
+            </GM-options>
+            <GM-method>
+                <GM-LMSR>
+                    <b>100</b>
+                </GM-LMSR>
+            </GM-method>
+        </GM-event>
+        <GM-event name="Election Winner">
+            <id>2</id>
+            <description>Will candidate X win the election</description>
+            <comision type="on-close">10</comision>
+            <GM-options>
+                <GM-option>Yes</GM-option>
+                <GM-option>No</GM-option>
+            </GM-options>
+            <GM-method>
+                <GM-order-book allow-mint="true" inital="1000" d="1"/>
+            </GM-method>
+        </GM-event>
+    </GM-events>
+    <GM-users>
+        <GM-user name="Avrum">
+            <initial-cash>2000</initial-cash>
+            <GM-mareket-maker>
+                <event id="2"/>
+            </GM-mareket-maker>
+        </GM-user>
+        <GM-user name="Tikva">
+            <initial-cash>500</initial-cash>
+            <GM-mareket-maker>
+                <event id="1"/>
+            </GM-mareket-maker>
+        </GM-user>
+        <GM-user name="Menash">
+            <initial-cash>300</initial-cash>
+        </GM-user>
+    </GM-users>
+</Guess-Market>

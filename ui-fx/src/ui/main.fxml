@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="ui.MainController">
+    <top>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <children>
+                <Button fx:id="loadButton" text="Load events file..." onAction="#onLoadFile"/>
+                <ProgressBar fx:id="progressBar" progress="0" visible="false"/>
+                <Label fx:id="statusLabel" text="No file loaded yet."/>
+            </children>
+        </HBox>
+    </top>
+    <center>
+        <TabPane tabClosingPolicy="UNAVAILABLE">
+            <tabs>
+                <Tab text="Users">
+                    <content>
+                        <fx:include source="users.fxml" fx:id="usersPane"/>
+                    </content>
+                </Tab>
+                <Tab text="Events">
+                    <content>
+                        <fx:include source="events.fxml" fx:id="eventsPane"/>
+                    </content>
+                </Tab>
+            </tabs>
+        </TabPane>
+    </center>
+</BorderPane>
