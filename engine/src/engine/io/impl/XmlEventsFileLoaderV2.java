@@ -183,13 +183,16 @@ public class XmlEventsFileLoaderV2 implements EventsFileLoaderV2 {
 
         Element orderBookElement = optionalChild(methodElement, "GM-order-book");
         if (orderBookElement != null) {
-            double initial = parseDouble(attribute(orderBookElement, "inital", label), label, "inital");
+            String initialValue = orderBookElement.hasAttribute("initial")
+                    ? attribute(orderBookElement, "initial", label)
+                    : attribute(orderBookElement, "inital", label);
+            double initial = parseDouble(initialValue, label, "initial");
             double d = parseDouble(attribute(orderBookElement, "d", label), label, "d");
             String allowMintValue = attribute(orderBookElement, "allow-mint", label);
             boolean allowMint = Boolean.parseBoolean(allowMintValue);
             if (initial < 0) {
                 throw new FileValidationException(label + " (\"" + eventName
-                        + "\"): inital must not be negative, got " + initial + ".");
+                        + "\"): initial must not be negative, got " + initial + ".");
             }
             if (d <= 0) {
                 throw new FileValidationException(label + " (\"" + eventName
