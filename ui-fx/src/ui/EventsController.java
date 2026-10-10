@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 public class EventsController {
 
     private IGuessMarketEngine engine;
+    private Runnable onDataChanged = () -> { };
 
     @FXML
     private ListView<EventSummary> eventList;
@@ -88,9 +89,16 @@ public class EventsController {
         refresh();
     }
 
+    public void setOnDataChanged(Runnable onDataChanged) {
+        this.onDataChanged = onDataChanged;
+    }
+
     private String summaryLine(EventSummary event) {
         return event.getName() + "  [" + event.getTradingMethodType() + "]  "
-                + Fmt.statusLabel(event.getStatus());
+                + Fmt.statusLabel(event.getStatus())
+                + "  |  Commission: " + event.getCommissionPercent() + "% "
+                + Fmt.commissionLabel(event.getCommissionType())
+                + "  |  Contract: " + Fmt.money(event.getContractBalance());
     }
 
     public void refresh() {
@@ -237,7 +245,7 @@ public class EventsController {
                 parts.add(holding.getQuantity() + " " + holding.getOptionName()
                         + " (paid " + Fmt.money(holding.getValue()) + ")");
             }
-            line.append(String.join(", ", parts));
+            line.append(parts.isEmpty() ? "no shares held (pending orders only)" : String.join(", ", parts));
             participantsBox.getChildren().add(new Label(line.toString()));
         }
         box.getChildren().add(participantsBox);
@@ -357,12 +365,27 @@ public class EventsController {
 
     private void runAction(ActionCall action) {
         try {
+            Set<String> blockedBefore = blockedUserNames();
             String message = action.run();
             refresh();
+            onDataChanged.run();
             new Alert(Alert.AlertType.INFORMATION, message).showAndWait();
+            for (String userName : blockedUserNames()) {
+                if (!blockedBefore.contains(userName)) {
+                    new Alert(Alert.AlertType.WARNING, "User \"" + userName + "\" now has a negative balance and is "
+                            + "blocked from performing any further actions.").showAndWait();
+                }
+            }
         } catch (InvalidOperationException | NumberFormatException e) {
             new Alert(Alert.AlertType.ERROR, e.getMessage() != null ? e.getMessage() : "Invalid input.").showAndWait();
         }
+    }
+
+    private Set<String> blockedUserNames() {
+        return engine.getAllUsers().stream()
+                .filter(UserSummary::isBlocked)
+                .map(UserSummary::getName)
+                .collect(Collectors.toSet());
     }
 
     private static class BuyForm {

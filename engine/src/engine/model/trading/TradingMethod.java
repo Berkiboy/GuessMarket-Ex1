@@ -7,4 +7,6 @@ public interface TradingMethod extends Serializable {
     double getPrice(int optionIndex);
 
     double openingCost();
+
+    double payoutPerShare();
 }

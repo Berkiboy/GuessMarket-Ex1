@@ -5,8 +5,10 @@ import engine.model.User;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class OrderBookTradingMethod implements TradingMethod {
 
@@ -43,6 +45,11 @@ public class OrderBookTradingMethod implements TradingMethod {
     @Override
     public double openingCost() {
         return initial;
+    }
+
+    @Override
+    public double payoutPerShare() {
+        return d;
     }
 
     public double getBaseValue() {
@@ -86,6 +93,13 @@ public class OrderBookTradingMethod implements TradingMethod {
         }
         if (quantity <= 0) {
             throw new IllegalArgumentException("Quantity must be a positive number.");
+        }
+        if (side == OrderSide.SELL) {
+            int available = getHoldings(user, optionIndex) - restingQuantity(user, books[optionIndex].getAsks());
+            if (quantity > available) {
+                throw new IllegalArgumentException("Cannot sell " + quantity + " shares: only " + available
+                        + " shares are available to sell (holdings not already offered in the book).");
+            }
         }
 
         List<OrderFill> fills = new ArrayList<>();
@@ -179,6 +193,22 @@ public class OrderBookTradingMethod implements TradingMethod {
         seller.getAccount().deposit(cost);
         holdingsFor(buyer)[optionIndex] += quantity;
         holdingsFor(seller)[optionIndex] -= quantity;
+    }
+
+    public Set<User> getParticipants() {
+        Set<User> participants = new LinkedHashSet<>(holdings.keySet());
+        for (OrderBook book : books) {
+            book.getBids().forEach(order -> participants.add(order.getUser()));
+            book.getAsks().forEach(order -> participants.add(order.getUser()));
+        }
+        return participants;
+    }
+
+    private int restingQuantity(User user, List<Order> orders) {
+        return orders.stream()
+                .filter(order -> order.getUser() == user)
+                .mapToInt(Order::getQuantity)
+                .sum();
     }
 
     private int[] holdingsFor(User user) {

@@ -2,6 +2,7 @@ package ui;
 
 import engine.IGuessMarketEngine;
 import engine.dto.OptionHoldingInfo;
+import engine.dto.OptionInfo;
 import engine.dto.TradeRecordInfo;
 import engine.dto.UserDetail;
 import engine.dto.UserEventParticipation;
@@ -79,7 +80,7 @@ public class UsersController {
         header.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
         Label balanceLabel = new Label("Balance: " + Fmt.money(detail.getBalance())
                 + (detail.isBlocked() ? "  (BLOCKED - negative balance)" : ""));
-        detailBox.getChildren().addAll(header, balanceLabel, new Label("Active in "
+        detailBox.getChildren().addAll(header, balanceLabel, new Label("Participating in "
                 + detail.getParticipations().size() + " event(s):"));
 
         for (UserEventParticipation participation : detail.getParticipations()) {
@@ -106,6 +107,14 @@ public class UsersController {
                         trade.getOptionName(), trade.getQuantity(), Fmt.money(trade.getPricePaid()),
                         Fmt.money(trade.getCommissionPaid()))));
             }
+            if (!participation.getOptionTotals().isEmpty()) {
+                content.getChildren().add(new Label("Total shares bought per option:"));
+                for (OptionInfo option : participation.getOptionTotals()) {
+                    boolean winner = option.getName().equals(participation.getWinningOptionName());
+                    content.getChildren().add(new Label(String.format("  %s: %d shares%s", option.getName(),
+                            option.getTotalSharesBought(), winner ? "  (WINNER)" : "")));
+                }
+            }
         } else {
             content.getChildren().add(new Label("Holdings:"));
             List<OptionHoldingInfo> holdings = participation.getOrderBookHoldings();
@@ -115,6 +124,11 @@ public class UsersController {
             for (OptionHoldingInfo holding : holdings) {
                 content.getChildren().add(new Label(String.format("  %s: %d shares, paid %s",
                         holding.getOptionName(), holding.getQuantity(), Fmt.money(holding.getValue()))));
+            }
+            if (participation.getProfitLoss() != null) {
+                double profitLoss = participation.getProfitLoss();
+                content.getChildren().add(new Label("Total " + (profitLoss >= 0 ? "profit" : "loss")
+                        + " from this event: " + Fmt.money(Math.abs(profitLoss))));
             }
         }
 

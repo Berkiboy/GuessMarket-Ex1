@@ -11,10 +11,13 @@ public class UserEventParticipation {
     private final double totalCommissionPaid;
     private final List<TradeRecordInfo> lmsrHistory;
     private final List<OptionHoldingInfo> orderBookHoldings;
+    private final List<OptionInfo> optionTotals;
+    private final Double profitLoss;
 
     public UserEventParticipation(int eventId, String eventName, String tradingMethodType, String status,
                                    String winningOptionName, double totalCommissionPaid,
-                                   List<TradeRecordInfo> lmsrHistory, List<OptionHoldingInfo> orderBookHoldings) {
+                                   List<TradeRecordInfo> lmsrHistory, List<OptionHoldingInfo> orderBookHoldings,
+                                   List<OptionInfo> optionTotals, Double profitLoss) {
         this.eventId = eventId;
         this.eventName = eventName;
         this.tradingMethodType = tradingMethodType;
@@ -23,6 +26,8 @@ public class UserEventParticipation {
         this.totalCommissionPaid = totalCommissionPaid;
         this.lmsrHistory = lmsrHistory;
         this.orderBookHoldings = orderBookHoldings;
+        this.optionTotals = optionTotals;
+        this.profitLoss = profitLoss;
     }
 
     public int getEventId() {
@@ -55,5 +60,13 @@ public class UserEventParticipation {
 
     public List<OptionHoldingInfo> getOrderBookHoldings() {
         return orderBookHoldings;
+    }
+
+    public List<OptionInfo> getOptionTotals() {
+        return optionTotals;
+    }
+
+    public Double getProfitLoss() {
+        return profitLoss;
     }
 }

@@ -26,6 +26,7 @@ public class Event implements Serializable {
     private final Account account = new Account();
     private final List<TradeRecord> history = new ArrayList<>();
     private final Map<User, Double> commissionPaidByUser = new LinkedHashMap<>();
+    private final Map<User, Double> netCashFlowByUser = new LinkedHashMap<>();
 
     private EventStatus status = EventStatus.NOT_STARTED;
     private int winningOptionIndex = -1;
@@ -57,6 +58,7 @@ public class Event implements Serializable {
 
         marketMaker.getAccount().withdraw(cost);
         account.deposit(cost);
+        recordCashFlow(marketMaker, -cost);
         if (tradingMethod instanceof OrderBookTradingMethod orderBook) {
             orderBook.allocateInitialShares(marketMaker);
         }
@@ -87,13 +89,10 @@ public class Event implements Serializable {
 
         lmsr.commitPurchase(optionIndex, quantity);
         options.get(optionIndex).addShares(quantity);
-        buyer.getAccount().withdraw(sharesCost + commission);
+        buyer.getAccount().withdraw(sharesCost);
         account.deposit(sharesCost);
-        if (commission > 0) {
-            marketMaker.getAccount().deposit(commission);
-            totalCommissionCollected += commission;
-            commissionPaidByUser.merge(buyer, commission, Double::sum);
-        }
+        recordCashFlow(buyer, -sharesCost);
+        chargeCommission(buyer, commission);
         buyer.blockIfNegative();
 
         TradeRecord record = new TradeRecord(buyer, optionIndex, options.get(optionIndex).getName(), quantity,
@@ -118,13 +117,14 @@ public class Event implements Serializable {
 
         List<OrderFill> fills = orderBook.submitOrder(user, optionIndex, side, quantity, price, account);
 
-        if (commissionType == CommissionType.ON_PURCHASE) {
-            for (OrderFill fill : fills) {
-                double commission = fill.getQuantity() * fill.getPrice() * commissionPercent / 100.0;
-                fill.getBuyer().getAccount().withdraw(commission);
-                marketMaker.getAccount().deposit(commission);
-                totalCommissionCollected += commission;
-                commissionPaidByUser.merge(fill.getBuyer(), commission, Double::sum);
+        for (OrderFill fill : fills) {
+            double tradeValue = fill.getQuantity() * fill.getPrice();
+            recordCashFlow(fill.getBuyer(), -tradeValue);
+            if (fill.getSeller() != null) {
+                recordCashFlow(fill.getSeller(), tradeValue);
+            }
+            if (commissionType == CommissionType.ON_PURCHASE) {
+                chargeCommission(fill.getBuyer(), tradeValue * commissionPercent / 100.0);
             }
         }
         for (OrderFill fill : fills) {
@@ -176,24 +176,37 @@ public class Event implements Serializable {
     }
 
     private void settleWinners(Map<User, Integer> winnerHoldings) {
-        double totalWinningShares = winnerHoldings.values().stream().mapToInt(Integer::intValue).sum();
-        double pricePerShare = 1.0;
-
-        if (commissionType == CommissionType.ON_CLOSE && totalWinningShares > 0) {
-            double commission = totalWinningShares * pricePerShare * commissionPercent / 100.0;
-            totalCommissionCollected += commission;
-            pricePerShare -= pricePerShare * commissionPercent / 100.0;
-        }
+        double commissionRate = commissionType == CommissionType.ON_CLOSE ? commissionPercent / 100.0 : 0.0;
 
         for (Map.Entry<User, Integer> entry : winnerHoldings.entrySet()) {
-            double payout = entry.getValue() * pricePerShare;
-            entry.getKey().getAccount().deposit(payout);
+            User winner = entry.getKey();
+            double payout = entry.getValue() * tradingMethod.payoutPerShare();
             account.withdraw(payout);
+            winner.getAccount().deposit(payout);
+            recordCashFlow(winner, payout);
+            chargeCommission(winner, payout * commissionRate);
         }
 
         double remainder = account.getBalance();
         marketMaker.getAccount().deposit(remainder);
         account.withdraw(remainder);
+        recordCashFlow(marketMaker, remainder);
+    }
+
+    private void chargeCommission(User payer, double commission) {
+        if (commission <= 0) {
+            return;
+        }
+        payer.getAccount().withdraw(commission);
+        marketMaker.getAccount().deposit(commission);
+        recordCashFlow(payer, -commission);
+        recordCashFlow(marketMaker, commission);
+        totalCommissionCollected += commission;
+        commissionPaidByUser.merge(payer, commission, Double::sum);
+    }
+
+    private void recordCashFlow(User user, double amount) {
+        netCashFlowByUser.merge(user, amount, Double::sum);
     }
 
     public List<TradeRecord> getHistoryMostRecentFirst() {
@@ -254,32 +267,17 @@ public class Event implements Serializable {
         return commissionPaidByUser.getOrDefault(user, 0.0);
     }
 
+    public double getNetCashFlow(User user) {
+        return netCashFlowByUser.getOrDefault(user, 0.0);
+    }
+
     public boolean isParticipant(User user) {
+        if (tradingMethod instanceof OrderBookTradingMethod orderBook) {
+            return orderBook.getParticipants().contains(user);
+        }
         for (TradeRecord record : history) {
             if (record.getBuyer() == user) {
                 return true;
-            }
-        }
-        if (tradingMethod instanceof OrderBookTradingMethod orderBook) {
-            int[] holdings = orderBook.getAllHoldings().get(user);
-            if (holdings != null) {
-                for (int qty : holdings) {
-                    if (qty != 0) {
-                        return true;
-                    }
-                }
-            }
-            for (int i = 0; i < options.size(); i++) {
-                for (var order : orderBook.getBook(i).getBids()) {
-                    if (order.getUser() == user) {
-                        return true;
-                    }
-                }
-                for (var order : orderBook.getBook(i).getAsks()) {
-                    if (order.getUser() == user) {
-                        return true;
-                    }
-                }
             }
         }
         return false;

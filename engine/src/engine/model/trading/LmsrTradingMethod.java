@@ -34,6 +34,11 @@ public class LmsrTradingMethod implements TradingMethod {
         return costFunction(new double[sharesBought.length]);
     }
 
+    @Override
+    public double payoutPerShare() {
+        return 1.0;
+    }
+
     private double costFunction(double[] shares) {
         return b * Math.log(sumExp(shares));
     }

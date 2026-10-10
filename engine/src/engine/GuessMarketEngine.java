@@ -41,7 +41,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 public class GuessMarketEngine implements IGuessMarketEngine {
@@ -166,11 +165,10 @@ public class GuessMarketEngine implements IGuessMarketEngine {
         }
 
         List<ParticipantInfo> participants = new ArrayList<>();
-        for (Map.Entry<User, int[]> entry : orderBook.getAllHoldings().entrySet()) {
-            List<OptionHoldingInfo> holdings = holdingsFor(event, orderBook, entry.getKey(), entry.getValue());
-            if (!holdings.isEmpty()) {
-                participants.add(new ParticipantInfo(entry.getKey().getName(), holdings));
-            }
+        for (User participant : orderBook.getParticipants()) {
+            int[] quantities = orderBook.getAllHoldings().getOrDefault(participant, new int[event.getOptions().size()]);
+            participants.add(new ParticipantInfo(participant.getName(),
+                    holdingsFor(event, orderBook, participant, quantities)));
         }
 
         boolean closed = event.getStatus() == EventStatus.CLOSED;
@@ -257,6 +255,13 @@ public class GuessMarketEngine implements IGuessMarketEngine {
 
         List<TradeRecordInfo> lmsrHistory = new ArrayList<>();
         List<OptionHoldingInfo> obHoldings = new ArrayList<>();
+        List<OptionInfo> optionTotals = new ArrayList<>();
+        if (closed) {
+            for (Option option : event.getOptions()) {
+                optionTotals.add(new OptionInfo(option.getName(), 0, option.getTotalSharesBought()));
+            }
+        }
+        Double profitLoss = closed ? event.getNetCashFlow(user) : null;
 
         if (isOrderBook) {
             OrderBookTradingMethod orderBook = (OrderBookTradingMethod) event.getTradingMethod();
@@ -273,7 +278,7 @@ public class GuessMarketEngine implements IGuessMarketEngine {
 
         return new UserEventParticipation(event.getId(), event.getName(), isOrderBook ? "ORDER_BOOK" : "LMSR",
                 event.getStatus().name(), winningOptionName, event.getCommissionPaidBy(user), lmsrHistory,
-                obHoldings);
+                obHoldings, optionTotals, profitLoss);
     }
 
     private EventSummary toSummary(Event event) {

@@ -33,6 +33,7 @@ public class MainController {
     private void initialize() {
         usersPaneController.setEngine(engine);
         eventsPaneController.setEngine(engine);
+        eventsPaneController.setOnDataChanged(usersPaneController::refresh);
     }
 
     @FXML
