@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Guess-Market>
+	<GM-events>
+		<GM-event name="World Cup 2026 Winner">
+			<description>Which team will win the 2026 world cup final ?</description>
+			<commission type="on-purchase">2</commission>
+			<GM-options>
+				<GM-option>Argentina</GM-option>
+				<GM-option>Spain</GM-option>
+				<GM-option>France</GM-option>
+				<GM-option>Other</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-order-book allow-mint="true" initial="200" d="1"/>
+			</GM-method>
+		</GM-event>
+		<GM-event name="Eurovision Winner">
+			<description>Which country will win the next Eurovision song contest ?</description>
+			<commission type="on-close">10</commission>
+			<GM-options>
+				<GM-option>Israel</GM-option>
+				<GM-option>Sweden</GM-option>
+				<GM-option>Italy</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-LMSR>
+					<b>150</b>
+				</GM-LMSR>
+			</GM-method>
+		</GM-event>
+		<GM-event name="Earth Quake on Dead Sea">
+			<description>Will there be an earth quake on the dead sea until December 31st 2026 ?</description>
+			<commission type="on-purchase">50</commission>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+				<GM-option>No</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-order-book allow-mint="false" initial="1000" d="1"/>
+			</GM-method>
+		</GM-event>
+	</GM-events>
+</Guess-Market>

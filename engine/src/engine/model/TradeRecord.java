@@ -1,8 +1,6 @@
 package engine.model;
 
-import java.io.Serializable;
-
-public class TradeRecord implements Serializable {
+public class TradeRecord {
 
     private final User buyer;
     private final int optionIndex;

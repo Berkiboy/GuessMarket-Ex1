@@ -1,0 +1,46 @@
+/* Guess Market client styles. Applied to every scene by GuessMarketClientApp. */
+
+.root {
+    -fx-font-size: 13px;
+}
+
+.header-bar {
+    -fx-background-color: #eef1f5;
+    -fx-border-color: transparent transparent #d5dbe3 transparent;
+}
+
+.app-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.login-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+}
+
+.page-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+
+.section-title {
+    -fx-font-weight: bold;
+}
+
+.user-name {
+    -fx-font-weight: bold;
+}
+
+.balance-text {
+    -fx-font-size: 14px;
+}
+
+.error-text,
+.blocked {
+    -fx-text-fill: #b00020;
+}
+
+.success-text {
+    -fx-text-fill: #1b6e20;
+}

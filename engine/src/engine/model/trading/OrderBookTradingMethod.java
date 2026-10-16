@@ -1,6 +1,5 @@
 package engine.model.trading;
 
-import engine.model.Account;
 import engine.model.User;
 
 import java.util.ArrayList;
@@ -10,6 +9,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Order Book matching for an event with any number of options. This class only moves shares and maintains the
+ * books; the owning Event turns the returned fills into money transfers and commissions.
+ */
 public class OrderBookTradingMethod implements TradingMethod {
 
     private final double initial;
@@ -39,12 +42,12 @@ public class OrderBookTradingMethod implements TradingMethod {
         if (mid != null) {
             return mid;
         }
-        return d / 2.0;
+        return d / books.length;
     }
 
     @Override
     public double openingCost() {
-        return initial;
+        return initialSetCount() * d;
     }
 
     @Override
@@ -52,8 +55,16 @@ public class OrderBookTradingMethod implements TradingMethod {
         return d;
     }
 
+    public double getInitial() {
+        return initial;
+    }
+
     public double getBaseValue() {
         return d;
+    }
+
+    public double getMaxPrice() {
+        return d - 0.01;
     }
 
     public boolean isMintAllowed() {
@@ -77,22 +88,26 @@ public class OrderBookTradingMethod implements TradingMethod {
         return fillLog;
     }
 
+    /** Number of full option sets (one share of every option, worth d together) the MM receives on opening. */
+    public int initialSetCount() {
+        return (int) Math.round(initial / d);
+    }
+
     public void allocateInitialShares(User marketMaker) {
-        int pairs = (int) Math.round(initial / d);
+        int sets = initialSetCount();
         int[] arr = holdingsFor(marketMaker);
         for (int i = 0; i < books.length; i++) {
-            arr[i] += pairs;
+            arr[i] += sets;
         }
     }
 
-    public List<OrderFill> submitOrder(User user, int optionIndex, OrderSide side, int quantity, double price,
-                                        Account eventAccount) {
-        if (price <= 0 || price > d - 0.01) {
-            throw new IllegalArgumentException(
-                    "Price must be positive and no more than " + String.format("%.2f", d - 0.01) + ".");
+    public List<OrderFill> submitOrder(User user, int optionIndex, OrderSide side, int quantity, double price) {
+        if (price <= 0 || price > getMaxPrice() + 1e-9) {
+            throw new IllegalArgumentException("Price must be positive and no more than "
+                    + String.format("%.2f", getMaxPrice()) + " (the base value d minus 0.01).");
         }
         if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be a positive number.");
+            throw new IllegalArgumentException("Quantity must be a positive whole number.");
         }
         if (side == OrderSide.SELL) {
             int available = getHoldings(user, optionIndex) - restingQuantity(user, books[optionIndex].getAsks());
@@ -107,7 +122,7 @@ public class OrderBookTradingMethod implements TradingMethod {
         int remaining = matchSameOption(user, optionIndex, side, quantity, price, book, fills);
 
         if (remaining > 0 && side == OrderSide.BUY && allowMint) {
-            remaining = matchMint(user, optionIndex, remaining, price, eventAccount, fills);
+            remaining = matchMint(user, optionIndex, remaining, price, fills);
         }
 
         if (remaining > 0) {
@@ -132,7 +147,8 @@ public class OrderBookTradingMethod implements TradingMethod {
             User buyer = side == OrderSide.BUY ? user : resting.getUser();
             User seller = side == OrderSide.BUY ? resting.getUser() : user;
 
-            executeTransfer(buyer, seller, optionIndex, fillQty, fillPrice);
+            holdingsFor(buyer)[optionIndex] += fillQty;
+            holdingsFor(seller)[optionIndex] -= fillQty;
             fills.add(new OrderFill(optionIndex, buyer, seller, fillQty, fillPrice, false));
 
             resting.reduceQuantity(fillQty);
@@ -143,56 +159,65 @@ public class OrderBookTradingMethod implements TradingMethod {
         return remaining;
     }
 
-    private int matchMint(User incomingUser, int optionIndex, int quantity, double price, Account eventAccount,
-                           List<OrderFill> fills) {
-        int otherIndex = complementOf(optionIndex);
-        OrderBook otherBook = books[otherIndex];
+    /**
+     * Mint: when every other option has a resting buy order and the prices of all of them together with the
+     * incoming price reach d, a new set of shares is created. The resting orders execute at their own price and
+     * the incoming order pays the completing price up to d, so the event account receives exactly d per set.
+     * With two options this is the YES/NO pairing.
+     */
+    private int matchMint(User incomingUser, int optionIndex, int quantity, double price, List<OrderFill> fills) {
         int remaining = quantity;
-
         while (remaining > 0) {
-            Order restingBuy = bestMintCandidate(otherBook, price);
-            if (restingBuy == null) {
-                break;
+            Order[] counterparts = new Order[books.length];
+            double counterpartsTotal = 0;
+            int mintQty = remaining;
+            for (int i = 0; i < books.length; i++) {
+                if (i == optionIndex) {
+                    continue;
+                }
+                Order best = highestBid(books[i]);
+                if (best == null) {
+                    return remaining;
+                }
+                counterparts[i] = best;
+                counterpartsTotal += best.getPrice();
+                mintQty = Math.min(mintQty, best.getQuantity());
             }
-            int mintQty = Math.min(remaining, restingBuy.getQuantity());
-            double completingPrice = d - restingBuy.getPrice();
+            // Every minted set must cost exactly d: the incoming price has to reach d together with the resting bids,
+            // and the resting bids alone must stay below d so the incoming order pays a positive completing price.
+            if (counterpartsTotal + price < d - 1e-9 || counterpartsTotal > d - 0.01 + 1e-9) {
+                return remaining;
+            }
 
-            incomingUser.getAccount().withdraw(completingPrice * mintQty);
-            restingBuy.getUser().getAccount().withdraw(restingBuy.getPrice() * mintQty);
-            eventAccount.deposit((completingPrice + restingBuy.getPrice()) * mintQty);
-
+            double completingPrice = d - counterpartsTotal;
             holdingsFor(incomingUser)[optionIndex] += mintQty;
-            holdingsFor(restingBuy.getUser())[otherIndex] += mintQty;
-
             fills.add(new OrderFill(optionIndex, incomingUser, null, mintQty, completingPrice, true));
-            fills.add(new OrderFill(otherIndex, restingBuy.getUser(), null, mintQty, restingBuy.getPrice(), true));
+            books[optionIndex].setLastTradePrice(completingPrice);
 
-            restingBuy.reduceQuantity(mintQty);
-            otherBook.removeIfExhausted(restingBuy);
+            for (int i = 0; i < books.length; i++) {
+                Order resting = counterparts[i];
+                if (resting == null) {
+                    continue;
+                }
+                holdingsFor(resting.getUser())[i] += mintQty;
+                fills.add(new OrderFill(i, resting.getUser(), null, mintQty, resting.getPrice(), true));
+                resting.reduceQuantity(mintQty);
+                books[i].removeIfExhausted(resting);
+                books[i].setLastTradePrice(resting.getPrice());
+            }
             remaining -= mintQty;
         }
         return remaining;
     }
 
-    private Order bestMintCandidate(OrderBook otherBook, double incomingPrice) {
+    private Order highestBid(OrderBook book) {
         Order best = null;
-        for (Order candidate : otherBook.getBids()) {
-            if (candidate.getQuantity() <= 0 || candidate.getPrice() + incomingPrice < d) {
-                continue;
-            }
-            if (best == null || candidate.getPrice() > best.getPrice()) {
+        for (Order candidate : book.getBids()) {
+            if (candidate.getQuantity() > 0 && (best == null || candidate.getPrice() > best.getPrice())) {
                 best = candidate;
             }
         }
         return best;
-    }
-
-    private void executeTransfer(User buyer, User seller, int optionIndex, int quantity, double price) {
-        double cost = quantity * price;
-        buyer.getAccount().withdraw(cost);
-        seller.getAccount().deposit(cost);
-        holdingsFor(buyer)[optionIndex] += quantity;
-        holdingsFor(seller)[optionIndex] -= quantity;
     }
 
     public Set<User> getParticipants() {
@@ -213,9 +238,5 @@ public class OrderBookTradingMethod implements TradingMethod {
 
     private int[] holdingsFor(User user) {
         return holdings.computeIfAbsent(user, u -> new int[books.length]);
-    }
-
-    private int complementOf(int optionIndex) {
-        return optionIndex == 0 ? 1 : 0;
     }
 }

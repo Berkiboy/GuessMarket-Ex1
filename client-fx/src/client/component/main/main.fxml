@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="client.component.main.MainController">
+    <top>
+        <FlowPane hgap="18" vgap="6" alignment="CENTER_LEFT" styleClass="header-bar">
+            <padding>
+                <Insets top="8" right="12" bottom="8" left="12"/>
+            </padding>
+            <children>
+                <Label text="Guess Market" styleClass="app-title"/>
+                <Label fx:id="userLabel" styleClass="user-name"/>
+                <Label fx:id="balanceLabel"/>
+                <Label fx:id="connectionLabel" wrapText="true" styleClass="error-text"/>
+                <Button text="Logout" onAction="#onLogout"/>
+            </children>
+        </FlowPane>
+    </top>
+    <center>
+        <TabPane tabClosingPolicy="UNAVAILABLE">
+            <tabs>
+                <Tab text="Events">
+                    <content>
+                        <fx:include source="/client/component/events/events.fxml" fx:id="eventsPane"/>
+                    </content>
+                </Tab>
+                <Tab text="User">
+                    <content>
+                        <fx:include source="/client/component/user/user.fxml" fx:id="userPane"/>
+                    </content>
+                </Tab>
+            </tabs>
+        </TabPane>
+    </center>
+</BorderPane>

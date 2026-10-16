@@ -1,0 +1,18 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="client:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/client</output-path>
+    <root id="root">
+      <element id="archive" name="guess-market-client.jar">
+        <element id="directory" name="META-INF">
+          <element id="file-copy" path="$PROJECT_DIR$/client-fx/src/META-INF/MANIFEST.MF" />
+        </element>
+        <element id="module-output" name="client-fx" />
+      </element>
+      <element id="artifact" artifact-name="engine:jar" />
+      <element id="file-copy" path="$PROJECT_DIR$/lib/gson-2.11.0.jar" />
+      <element id="dir-copy" path="$PROJECT_DIR$/lib/okhttp" />
+      <element id="dir-copy" path="$PROJECT_DIR$/lib/javafx-win" />
+      <element id="file-copy" path="$PROJECT_DIR$/client-fx/run.bat" />
+    </root>
+  </artifact>
+</component>

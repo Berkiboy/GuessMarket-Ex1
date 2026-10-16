@@ -1,0 +1,17 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="GuessMarket:war">
+    <output-path>$PROJECT_DIR$/out/artifacts/GuessMarket_war</output-path>
+    <root id="archive" name="GuessMarket.war">
+      <element id="directory" name="WEB-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/server/web/WEB-INF/web.xml" />
+        <element id="directory" name="classes">
+          <element id="module-output" name="server" />
+        </element>
+        <element id="directory" name="lib">
+          <element id="artifact" artifact-name="engine:jar" />
+          <element id="file-copy" path="$PROJECT_DIR$/lib/gson-2.11.0.jar" />
+        </element>
+      </element>
+    </root>
+  </artifact>
+</component>

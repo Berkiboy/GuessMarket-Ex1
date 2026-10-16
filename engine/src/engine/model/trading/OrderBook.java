@@ -1,10 +1,9 @@
 package engine.model.trading;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class OrderBook implements Serializable {
+public class OrderBook {
 
     private final List<Order> bids = new ArrayList<>();
     private final List<Order> asks = new ArrayList<>();

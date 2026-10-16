@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<SplitPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="client.component.user.UserController"
+           dividerPositions="0.62">
+    <items>
+        <ScrollPane fx:id="myScroll" fitToWidth="true">
+            <content>
+                <VBox spacing="12">
+                    <padding>
+                        <Insets top="15" right="15" bottom="15" left="15"/>
+                    </padding>
+                    <children>
+                        <Label fx:id="nameLabel" styleClass="page-title"/>
+
+                        <Label text="Upload events file" styleClass="section-title"/>
+                        <FlowPane hgap="10" vgap="6" alignment="CENTER_LEFT">
+                            <children>
+                                <Button fx:id="uploadButton" text="Upload events file..." onAction="#onUpload"/>
+                                <ProgressBar fx:id="uploadProgress" prefWidth="140" visible="false" managed="false"/>
+                            </children>
+                        </FlowPane>
+                        <Label fx:id="uploadStatusLabel" wrapText="true"/>
+
+                        <Label text="Account" styleClass="section-title"/>
+                        <Label fx:id="balanceLabel" styleClass="balance-text"/>
+                        <FlowPane hgap="10" vgap="6" alignment="CENTER_LEFT">
+                            <children>
+                                <Label text="Load funds:"/>
+                                <TextField fx:id="depositField" promptText="Amount" prefColumnCount="8"
+                                           onAction="#onDeposit"/>
+                                <Button fx:id="depositButton" text="Deposit" onAction="#onDeposit"/>
+                                <Label fx:id="depositStatusLabel" wrapText="true"/>
+                            </children>
+                        </FlowPane>
+                        <Label text="Account transactions (one line per change):"/>
+                        <TableView fx:id="transactionsTable" prefHeight="230" minHeight="150">
+                            <placeholder>
+                                <Label text="No transactions yet. Deposit funds to start trading."/>
+                            </placeholder>
+                        </TableView>
+
+                        <Label fx:id="participationsLabel" styleClass="section-title"/>
+                        <VBox fx:id="participationsBox" spacing="6"/>
+                    </children>
+                </VBox>
+            </content>
+        </ScrollPane>
+        <VBox spacing="8">
+            <padding>
+                <Insets top="15" right="10" bottom="10" left="10"/>
+            </padding>
+            <children>
+                <Label text="All users" styleClass="section-title"/>
+                <TableView fx:id="usersTable" VBox.vgrow="ALWAYS">
+                    <placeholder>
+                        <Label text="No users yet."/>
+                    </placeholder>
+                </TableView>
+            </children>
+        </VBox>
+    </items>
+</SplitPane>

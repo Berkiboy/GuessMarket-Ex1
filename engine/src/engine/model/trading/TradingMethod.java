@@ -1,8 +1,6 @@
 package engine.model.trading;
 
-import java.io.Serializable;
-
-public interface TradingMethod extends Serializable {
+public interface TradingMethod {
 
     double getPrice(int optionIndex);
 

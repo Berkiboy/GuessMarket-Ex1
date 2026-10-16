@@ -1,16 +1,14 @@
 package engine.model;
 
-import java.io.Serializable;
-
-public class User implements Serializable {
+public class User {
 
     private final String name;
     private final Account account = new Account();
     private boolean blocked;
+    private boolean loggedIn;
 
-    public User(String name, double initialCash) {
+    public User(String name) {
         this.name = name;
-        account.deposit(initialCash);
     }
 
     public String getName() {
@@ -29,5 +27,19 @@ public class User implements Serializable {
         if (account.getBalance() < 0) {
             blocked = true;
         }
+    }
+
+    public void unblockIfNonNegative() {
+        if (account.getBalance() >= 0) {
+            blocked = false;
+        }
+    }
+
+    public boolean isLoggedIn() {
+        return loggedIn;
+    }
+
+    public void setLoggedIn(boolean loggedIn) {
+        this.loggedIn = loggedIn;
     }
 }

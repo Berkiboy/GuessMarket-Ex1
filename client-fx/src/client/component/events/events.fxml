@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="client.component.events.EventsController">
+    <top>
+        <FlowPane hgap="15" vgap="8">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <children>
+                <HBox spacing="4" alignment="CENTER_LEFT">
+                    <children>
+                        <Label text="Type:"/>
+                        <ToggleButton fx:id="lmsrToggle" text="LMSR" selected="true"/>
+                        <ToggleButton fx:id="orderBookToggle" text="Order Book" selected="true"/>
+                    </children>
+                </HBox>
+                <HBox spacing="4" alignment="CENTER_LEFT">
+                    <children>
+                        <Label text="Status:"/>
+                        <ToggleButton fx:id="notStartedToggle" text="Not started" selected="true"/>
+                        <ToggleButton fx:id="activeToggle" text="Active" selected="true"/>
+                        <ToggleButton fx:id="closedToggle" text="Closed" selected="true"/>
+                    </children>
+                </HBox>
+                <HBox spacing="4" alignment="CENTER_LEFT">
+                    <children>
+                        <Label text="Commission:"/>
+                        <ToggleButton fx:id="onPurchaseToggle" text="On-purchase" selected="true"/>
+                        <ToggleButton fx:id="onCloseToggle" text="On-close" selected="true"/>
+                    </children>
+                </HBox>
+            </children>
+        </FlowPane>
+    </top>
+    <center>
+        <SplitPane dividerPositions="0.48">
+            <items>
+                <TableView fx:id="eventTable">
+                    <placeholder>
+                        <Label text="No events to show. Upload an events file from the User tab." wrapText="true"/>
+                    </placeholder>
+                </TableView>
+                <ScrollPane fx:id="detailScroll" fitToWidth="true">
+                    <content>
+                        <VBox fx:id="detailBox" spacing="10">
+                            <padding>
+                                <Insets top="15" right="15" bottom="15" left="15"/>
+                            </padding>
+                            <children>
+                                <Label text="Select an event to see its details." wrapText="true"/>
+                            </children>
+                        </VBox>
+                    </content>
+                </ScrollPane>
+            </items>
+        </SplitPane>
+    </center>
+</BorderPane>

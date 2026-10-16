@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Uses the spelling of the XSD diagrams (comision / inital); the loader accepts it as well. -->
+<Guess-Market>
+	<GM-events>
+		<GM-event name="Bitcoin above 100K">
+			<description>Will Bitcoin close above 100,000 USD on December 31st ?</description>
+			<comision type="on-close">5</comision>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+				<GM-option>No</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-order-book allow-mint="true" inital="50" d="2"/>
+			</GM-method>
+		</GM-event>
+	</GM-events>
+</Guess-Market>

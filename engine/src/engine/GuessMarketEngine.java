@@ -1,27 +1,30 @@
 package engine;
 
+import engine.dto.AccountTransactionInfo;
 import engine.dto.EventStateSummary;
 import engine.dto.EventSummary;
 import engine.dto.FillInfo;
 import engine.dto.LoadResult;
 import engine.dto.OptionHoldingInfo;
+import engine.dto.OptionInfo;
 import engine.dto.OrderBookEntryInfo;
 import engine.dto.OrderBookEventStateSummary;
 import engine.dto.OrderBookOptionView;
 import engine.dto.OrderBookStatsInfo;
 import engine.dto.OrderSubmitResult;
-import engine.dto.OptionInfo;
 import engine.dto.ParticipantInfo;
 import engine.dto.PurchaseResult;
 import engine.dto.Side;
 import engine.dto.TradeRecordInfo;
+import engine.dto.TransactionsDelta;
 import engine.dto.UserDetail;
 import engine.dto.UserEventParticipation;
 import engine.dto.UserSummary;
 import engine.exceptions.FileValidationException;
 import engine.exceptions.InvalidOperationException;
-import engine.io.EventsFileLoaderV2;
-import engine.io.LoadedGameState;
+import engine.io.EventDefinition;
+import engine.io.EventsFileLoader;
+import engine.model.AccountTransaction;
 import engine.model.Event;
 import engine.model.EventStatus;
 import engine.model.Option;
@@ -33,73 +36,112 @@ import engine.model.trading.OrderBookTradingMethod;
 import engine.model.trading.OrderFill;
 import engine.model.trading.OrderSide;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class GuessMarketEngine implements IGuessMarketEngine {
 
-    private static final String STATE_FILE_EXTENSION = ".gmdata";
+    private final EventsFileLoader fileLoader;
+    private final Map<String, User> usersByKey = new LinkedHashMap<>();
+    private final List<Event> events = new ArrayList<>();
+    private long dataVersion;
 
-    private final EventsFileLoaderV2 fileLoader;
-    private List<User> users = new ArrayList<>();
-    private List<Event> events = new ArrayList<>();
-
-    public GuessMarketEngine(EventsFileLoaderV2 fileLoader) {
+    public GuessMarketEngine(EventsFileLoader fileLoader) {
         this.fileLoader = fileLoader;
     }
 
     @Override
-    public LoadResult loadEventsFile(String path) {
+    public synchronized void login(String userName) {
+        String name = userName == null ? "" : userName.trim();
+        if (name.isEmpty()) {
+            throw new InvalidOperationException("Please enter a user name.");
+        }
+        User user = usersByKey.get(key(name));
+        if (user != null && user.isLoggedIn()) {
+            throw new InvalidOperationException("The user name \"" + user.getName()
+                    + "\" is already taken by a connected user. Please choose a different name.");
+        }
+        if (user == null) {
+            user = new User(name);
+            usersByKey.put(key(name), user);
+        }
+        user.setLoggedIn(true);
+        dataVersion++;
+    }
+
+    @Override
+    public synchronized void logout(String userName) {
+        User user = usersByKey.get(key(userName));
+        if (user != null && user.isLoggedIn()) {
+            user.setLoggedIn(false);
+            dataVersion++;
+        }
+    }
+
+    @Override
+    public synchronized boolean isLoggedIn(String userName) {
+        User user = usersByKey.get(key(userName));
+        return user != null && user.isLoggedIn();
+    }
+
+    @Override
+    public synchronized LoadResult uploadEventsFile(String uploaderName, String fileName, InputStream content) {
+        User uploader = findUser(uploaderName);
+        List<EventDefinition> definitions;
         try {
-            LoadedGameState state = fileLoader.load(path);
-            this.users = state.getUsers();
-            this.events = state.getEvents();
-            return LoadResult.success(events.size());
+            definitions = fileLoader.load(fileName, content);
         } catch (FileValidationException e) {
-            return LoadResult.failure(e.getMessage());
+            return LoadResult.failure("The file \"" + fileName + "\" was not loaded:\n" + e.getMessage());
         }
+
+        List<String> clashes = new ArrayList<>();
+        for (EventDefinition definition : definitions) {
+            events.stream()
+                    .filter(e -> key(e.getName()).equals(key(definition.name())))
+                    .findFirst()
+                    .ifPresent(e -> clashes.add("An event named \"" + e.getName() + "\" already exists in the system."));
+        }
+        if (!clashes.isEmpty()) {
+            return LoadResult.failure("The file \"" + fileName + "\" was not loaded:\n" + String.join("\n", clashes));
+        }
+
+        for (EventDefinition definition : definitions) {
+            List<Option> options = definition.optionNames().stream().map(Option::new).collect(Collectors.toList());
+            events.add(new Event(events.size() + 1, definition.name(), definition.description(),
+                    definition.commissionPercent(), definition.commissionType(), options,
+                    definition.tradingMethod(), uploader));
+        }
+        dataVersion++;
+        return LoadResult.success("The file \"" + fileName + "\" was loaded successfully: " + definitions.size()
+                + " event(s) added. You are the market maker of all of them.", definitions.size());
     }
 
     @Override
-    public LoadResult saveState(String path) {
-        File file = new File(path + STATE_FILE_EXTENSION);
-        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file))) {
-            out.writeObject(new LoadedGameState(users, events));
-            return LoadResult.success("State saved successfully to \"" + file.getPath() + "\".", events.size());
-        } catch (IOException e) {
-            return LoadResult.failure("Could not save state to \"" + file.getPath() + "\": " + e.getMessage());
+    public synchronized void depositFunds(String userName, double amount) {
+        User user = findUser(userName);
+        if (!(amount > 0) || Double.isInfinite(amount)) {
+            throw new InvalidOperationException("The amount to deposit must be a positive number.");
         }
+        user.getAccount().deposit(amount, "Deposit");
+        user.unblockIfNonNegative();
+        dataVersion++;
     }
 
     @Override
-    public LoadResult loadState(String path) {
-        File file = new File(path + STATE_FILE_EXTENSION);
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(file))) {
-            LoadedGameState state = (LoadedGameState) in.readObject();
-            this.users = state.getUsers();
-            this.events = state.getEvents();
-            return LoadResult.success("State loaded successfully from \"" + file.getPath() + "\".", events.size());
-        } catch (IOException | ClassNotFoundException e) {
-            return LoadResult.failure("Could not load state from \"" + file.getPath() + "\": " + e.getMessage());
-        }
-    }
-
-    @Override
-    public List<UserSummary> getAllUsers() {
-        return users.stream()
-                .map(u -> new UserSummary(u.getName(), u.getAccount().getBalance(), u.isBlocked()))
+    public synchronized List<UserSummary> getAllUsers() {
+        return usersByKey.values().stream()
+                .map(u -> new UserSummary(u.getName(), u.getAccount().getBalance(), u.isBlocked(),
+                        isMarketMaker(u), u.isLoggedIn()))
                 .collect(Collectors.toList());
     }
 
     @Override
-    public UserDetail getUserDetail(String userName) {
+    public synchronized UserDetail getUserDetail(String userName) {
         User user = findUser(userName);
         List<UserEventParticipation> participations = new ArrayList<>();
         for (Event event : events) {
@@ -111,12 +153,23 @@ public class GuessMarketEngine implements IGuessMarketEngine {
     }
 
     @Override
-    public List<EventSummary> getAllEvents() {
+    public synchronized TransactionsDelta getTransactions(String userName, int fromVersion) {
+        List<AccountTransaction> all = findUser(userName).getAccount().getTransactions();
+        int from = Math.max(0, Math.min(fromVersion, all.size()));
+        List<AccountTransactionInfo> entries = all.subList(from, all.size()).stream()
+                .map(t -> new AccountTransactionInfo(t.serial(), t.time(), t.description(), t.amount(),
+                        t.balanceAfter()))
+                .collect(Collectors.toList());
+        return new TransactionsDelta(all.size(), entries);
+    }
+
+    @Override
+    public synchronized List<EventSummary> getAllEvents() {
         return events.stream().map(this::toSummary).collect(Collectors.toList());
     }
 
     @Override
-    public EventStateSummary getLmsrEventState(int eventId) {
+    public synchronized EventStateSummary getLmsrEventState(int eventId) {
         Event event = findEvent(eventId);
         if (!(event.getTradingMethod() instanceof LmsrTradingMethod lmsr)) {
             throw new InvalidOperationException("Event \"" + event.getName() + "\" is not an LMSR event.");
@@ -137,14 +190,12 @@ public class GuessMarketEngine implements IGuessMarketEngine {
                         t.getPricePaid(), t.getCommissionPaid()))
                 .collect(Collectors.toList());
 
-        String winningOptionName = closed ? event.getOptions().get(event.getWinningOptionIndex()).getName() : null;
-
         return new EventStateSummary(event.getId(), event.getName(), optionInfos, event.getAccount().getBalance(),
-                event.getTotalCommissionCollected(), history, event.getStatus().name(), winningOptionName);
+                event.getTotalCommissionCollected(), history, event.getStatus().name(), winningOptionName(event));
     }
 
     @Override
-    public OrderBookEventStateSummary getOrderBookEventState(int eventId) {
+    public synchronized OrderBookEventStateSummary getOrderBookEventState(int eventId) {
         Event event = findEvent(eventId);
         if (!(event.getTradingMethod() instanceof OrderBookTradingMethod orderBook)) {
             throw new InvalidOperationException("Event \"" + event.getName() + "\" is not an Order Book event.");
@@ -166,36 +217,34 @@ public class GuessMarketEngine implements IGuessMarketEngine {
 
         List<ParticipantInfo> participants = new ArrayList<>();
         for (User participant : orderBook.getParticipants()) {
-            int[] quantities = orderBook.getAllHoldings().getOrDefault(participant, new int[event.getOptions().size()]);
-            participants.add(new ParticipantInfo(participant.getName(),
-                    holdingsFor(event, orderBook, participant, quantities)));
+            participants.add(new ParticipantInfo(participant.getName(), holdingsFor(event, orderBook, participant)));
         }
 
-        boolean closed = event.getStatus() == EventStatus.CLOSED;
-        String winningOptionName = closed ? event.getOptions().get(event.getWinningOptionIndex()).getName() : null;
-
         return new OrderBookEventStateSummary(event.getId(), event.getName(), event.getAccount().getBalance(),
-                event.getTotalCommissionCollected(), event.getStatus().name(), winningOptionName, optionViews,
+                event.getTotalCommissionCollected(), event.getStatus().name(), winningOptionName(event), optionViews,
                 participants);
     }
 
     @Override
-    public void openEvent(String actingUserName, int eventId) {
+    public synchronized void openEvent(String actingUserName, int eventId) {
         User user = findUser(actingUserName);
         Event event = findEvent(eventId);
         try {
             event.open(user);
+            dataVersion++;
         } catch (IllegalArgumentException | IllegalStateException e) {
             throw new InvalidOperationException(e.getMessage());
         }
     }
 
     @Override
-    public PurchaseResult buyLmsrShares(String buyerUserName, int eventId, int optionIndex, int quantity) {
+    public synchronized PurchaseResult buyLmsrShares(String buyerUserName, int eventId, int optionIndex,
+                                                     int quantity) {
         User buyer = findUser(buyerUserName);
         Event event = findEvent(eventId);
         try {
             TradeRecord record = event.buyLmsr(buyer, optionIndex, quantity);
+            dataVersion++;
             return new PurchaseResult(record.getPricePaid(), record.getCommissionPaid(), getLmsrEventState(eventId));
         } catch (IllegalArgumentException | IllegalStateException e) {
             throw new InvalidOperationException(e.getMessage());
@@ -203,13 +252,14 @@ public class GuessMarketEngine implements IGuessMarketEngine {
     }
 
     @Override
-    public OrderSubmitResult submitOrder(String userName, int eventId, int optionIndex, Side side, int quantity,
-                                          double price) {
+    public synchronized OrderSubmitResult submitOrder(String userName, int eventId, int optionIndex, Side side,
+                                                      int quantity, double price) {
         User user = findUser(userName);
         Event event = findEvent(eventId);
         try {
             List<OrderFill> fills = event.submitOrder(user, optionIndex, OrderSide.valueOf(side.name()), quantity,
                     price);
+            dataVersion++;
             List<FillInfo> fillInfos = fills.stream()
                     .map(f -> new FillInfo(f.getBuyer().getName(), f.getSeller() == null ? null : f.getSeller().getName(),
                             event.getOptions().get(f.getOptionIndex()).getName(), f.getQuantity(), f.getPrice()))
@@ -221,18 +271,25 @@ public class GuessMarketEngine implements IGuessMarketEngine {
     }
 
     @Override
-    public void closeEvent(String actingUserName, int eventId, int winningOptionIndex) {
+    public synchronized void closeEvent(String actingUserName, int eventId, int winningOptionIndex) {
         User user = findUser(actingUserName);
         Event event = findEvent(eventId);
         try {
             event.close(user, winningOptionIndex);
+            dataVersion++;
         } catch (IllegalArgumentException | IllegalStateException e) {
             throw new InvalidOperationException(e.getMessage());
         }
     }
 
-    private List<OptionHoldingInfo> holdingsFor(Event event, OrderBookTradingMethod orderBook, User user,
-                                                 int[] quantities) {
+    @Override
+    public synchronized long getDataVersion() {
+        return dataVersion;
+    }
+
+    private List<OptionHoldingInfo> holdingsFor(Event event, OrderBookTradingMethod orderBook, User user) {
+        int[] quantities = orderBook.getAllHoldings().getOrDefault(user, new int[event.getOptions().size()]);
+        boolean closed = event.getStatus() == EventStatus.CLOSED;
         List<OptionHoldingInfo> holdings = new ArrayList<>();
         for (int i = 0; i < quantities.length; i++) {
             if (quantities[i] == 0) {
@@ -243,7 +300,11 @@ public class GuessMarketEngine implements IGuessMarketEngine {
                     .filter(f -> f.getBuyer() == user && f.getOptionIndex() == optionIndex)
                     .mapToDouble(f -> f.getQuantity() * f.getPrice())
                     .sum();
-            holdings.add(new OptionHoldingInfo(event.getOptions().get(i).getName(), quantities[i], totalPaid));
+            double price = closed
+                    ? (i == event.getWinningOptionIndex() ? orderBook.getBaseValue() : 0.0)
+                    : orderBook.getPrice(i);
+            holdings.add(new OptionHoldingInfo(event.getOptions().get(i).getName(), quantities[i], totalPaid,
+                    quantities[i] * price));
         }
         return holdings;
     }
@@ -251,7 +312,6 @@ public class GuessMarketEngine implements IGuessMarketEngine {
     private UserEventParticipation toParticipation(Event event, User user) {
         boolean isOrderBook = event.getTradingMethod() instanceof OrderBookTradingMethod;
         boolean closed = event.getStatus() == EventStatus.CLOSED;
-        String winningOptionName = closed ? event.getOptions().get(event.getWinningOptionIndex()).getName() : null;
 
         List<TradeRecordInfo> lmsrHistory = new ArrayList<>();
         List<OptionHoldingInfo> obHoldings = new ArrayList<>();
@@ -264,9 +324,7 @@ public class GuessMarketEngine implements IGuessMarketEngine {
         Double profitLoss = closed ? event.getNetCashFlow(user) : null;
 
         if (isOrderBook) {
-            OrderBookTradingMethod orderBook = (OrderBookTradingMethod) event.getTradingMethod();
-            int[] quantities = orderBook.getAllHoldings().getOrDefault(user, new int[event.getOptions().size()]);
-            obHoldings = holdingsFor(event, orderBook, user, quantities);
+            obHoldings = holdingsFor(event, (OrderBookTradingMethod) event.getTradingMethod(), user);
         } else {
             for (TradeRecord record : event.getHistoryMostRecentFirst()) {
                 if (record.getBuyer() == user) {
@@ -277,30 +335,55 @@ public class GuessMarketEngine implements IGuessMarketEngine {
         }
 
         return new UserEventParticipation(event.getId(), event.getName(), isOrderBook ? "ORDER_BOOK" : "LMSR",
-                event.getStatus().name(), winningOptionName, event.getCommissionPaidBy(user), lmsrHistory,
+                event.getStatus().name(), winningOptionName(event), event.getCommissionPaidBy(user), lmsrHistory,
                 obHoldings, optionTotals, profitLoss);
     }
 
     private EventSummary toSummary(Event event) {
         List<String> optionNames = event.getOptions().stream().map(Option::getName).collect(Collectors.toList());
+        String methodDetails;
+        double maxOrderPrice = 0;
+        if (event.getTradingMethod() instanceof OrderBookTradingMethod orderBook) {
+            methodDetails = String.format("d = %.2f, initial = %.2f, mint %s", orderBook.getBaseValue(),
+                    orderBook.getInitial(), orderBook.isMintAllowed() ? "allowed" : "not allowed");
+            maxOrderPrice = orderBook.getMaxPrice();
+        } else {
+            LmsrTradingMethod lmsr = (LmsrTradingMethod) event.getTradingMethod();
+            methodDetails = String.format("b = %d, opening subsidy = %.2f", lmsr.getB(), lmsr.openingCost());
+        }
         boolean isOrderBook = event.getTradingMethod() instanceof OrderBookTradingMethod;
         return new EventSummary(event.getId(), event.getName(), event.getDescription(),
                 event.getCommissionPercent(), event.getCommissionType().name(), optionNames,
                 event.getStatus().name(), isOrderBook ? "ORDER_BOOK" : "LMSR", event.getMarketMaker().getName(),
-                event.getAccount().getBalance());
+                event.getAccount().getBalance(), methodDetails, maxOrderPrice);
+    }
+
+    private String winningOptionName(Event event) {
+        return event.getStatus() == EventStatus.CLOSED
+                ? event.getOptions().get(event.getWinningOptionIndex()).getName()
+                : null;
+    }
+
+    private boolean isMarketMaker(User user) {
+        return events.stream().anyMatch(e -> e.getMarketMaker() == user);
     }
 
     private User findUser(String userName) {
-        return users.stream()
-                .filter(u -> u.getName().equals(userName))
-                .findFirst()
-                .orElseThrow(() -> new InvalidOperationException("No user found with name \"" + userName + "\"."));
+        User user = userName == null ? null : usersByKey.get(key(userName));
+        if (user == null) {
+            throw new InvalidOperationException("No user found with name \"" + userName + "\".");
+        }
+        return user;
     }
 
     private Event findEvent(int eventId) {
         return events.stream()
                 .filter(e -> e.getId() == eventId)
                 .findFirst()
-                .orElseThrow(() -> new InvalidOperationException("No event found with id " + eventId));
+                .orElseThrow(() -> new InvalidOperationException("No event found with number " + eventId + "."));
+    }
+
+    private static String key(String name) {
+        return name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
     }
 }

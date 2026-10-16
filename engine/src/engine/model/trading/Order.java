@@ -2,9 +2,7 @@ package engine.model.trading;
 
 import engine.model.User;
 
-import java.io.Serializable;
-
-public class Order implements Serializable {
+public class Order {
 
     private final User user;
     private final OrderSide side;

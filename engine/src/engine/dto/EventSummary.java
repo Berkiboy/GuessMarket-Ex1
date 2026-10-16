@@ -13,10 +13,12 @@ public class EventSummary {
     private final String tradingMethodType;
     private final String marketMakerName;
     private final double contractBalance;
+    private final String methodDetails;
+    private final double maxOrderPrice;
 
     public EventSummary(int id, String name, String description, int commissionPercent, String commissionType,
                          List<String> optionNames, String status, String tradingMethodType, String marketMakerName,
-                         double contractBalance) {
+                         double contractBalance, String methodDetails, double maxOrderPrice) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -27,6 +29,8 @@ public class EventSummary {
         this.tradingMethodType = tradingMethodType;
         this.marketMakerName = marketMakerName;
         this.contractBalance = contractBalance;
+        this.methodDetails = methodDetails;
+        this.maxOrderPrice = maxOrderPrice;
     }
 
     public int getId() {
@@ -67,5 +71,14 @@ public class EventSummary {
 
     public double getContractBalance() {
         return contractBalance;
+    }
+
+    public String getMethodDetails() {
+        return methodDetails;
+    }
+
+    /** Highest price allowed in an Order Book order (d - 0.01); 0 for LMSR events. */
+    public double getMaxOrderPrice() {
+        return maxOrderPrice;
     }
 }

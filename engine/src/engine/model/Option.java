@@ -1,8 +1,6 @@
 package engine.model;
 
-import java.io.Serializable;
-
-public class Option implements Serializable {
+public class Option {
 
     private final String name;
     private int totalSharesBought;

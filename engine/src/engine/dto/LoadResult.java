@@ -11,10 +11,6 @@ public class LoadResult {
         this.eventsLoaded = eventsLoaded;
     }
 
-    public static LoadResult success(int eventsLoaded) {
-        return new LoadResult(true, "File loaded successfully.", eventsLoaded);
-    }
-
     public static LoadResult success(String message, int eventsLoaded) {
         return new LoadResult(true, message, eventsLoaded);
     }
